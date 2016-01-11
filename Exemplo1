@@ -1,0 +1,37 @@
+
+
+    // Declara um array bidimensional na memória da placa gráfica.   
+    cudaArray* cu_array;   
+    texture<float, 2> tex;  
+       
+    // Aloca o array na placa gráfica com tamanho widthXheight.   
+    cudaMalloc( &cu_array, cudaCreateChannelDesc<float>(), width, height );  
+       
+    // Copia o conteúdo de image que está na CPU para o cu_array que está na GPU.   
+    cudaMemcpy( cu_array, image, width*height, cudaMemcpyHostToDevice);  
+       
+    // Bind the array to the texture  
+    cudaBindTexture( tex, cu_array);  
+       
+    // Define o número de threads em cada bloco (16x16).   
+    dim3 blockDim(16, 16, 1);  
+      
+    // Determina a quantidade de blocos.  
+    dim3 gridDim(width / blockDim.x, height / blockDim.y, 1);  
+      
+    // Chama a função kernel que já está dentro da GPU  
+    kernel<<< gridDim, blockDim, 0 >>>(d_odata, width, height);  
+      
+    cudaUnbindTexture(tex);  
+      
+    // Esta função será executada na GPU.   
+    // Reparem a forma com que o programador busca o X e o Y para acessar a imagem.    
+    // A anotação __global__ define que está função pode ser executada na GPU.  
+    __global__ void kernel(float* odata, int height, int width) {  
+       unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;  
+       unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;  
+       // Busca o valor da posição x, y na textura.   
+       float c = texfetch(tex, x, y);  
+       // salva no vetor odata  
+       odata[y*width+x] = c;  
+    }  
